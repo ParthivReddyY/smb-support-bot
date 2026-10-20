@@ -1,0 +1,22 @@
+{
+  "name": "smb-support-bot",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "kb": "node scripts/build-kb.mjs",
+    "types": "wrangler types",
+    "check": "npm run kb && wrangler types && tsc",
+    "dev": "npm run kb && wrangler dev",
+    "deploy": "npm run kb && wrangler deploy"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "devDependencies": {
+    "typescript": "^7.0.2",
+    "wrangler": "^4.151.2"
+  }
+}

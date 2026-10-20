@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Support assistant demo — AI front desk for a small business</title>
+  <meta name="description" content="A live retrieval-augmented support assistant for a fictional dental practice, running on Cloudflare Workers AI and Vectorize. Answers cite their sources and hand off to a human when unsure." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="page">
+    <section class="story" aria-labelledby="story-title">
+      <p class="kicker">Live demo · fictional business</p>
+      <h1 id="story-title">An AI front desk that answers from your own documents — and knows when to hand off.</h1>
+      <p class="lede">Ask the assistant for Juniper Lane Dental anything a patient would: prices, insurance, opening hours, what to do with a knocked-out tooth. Every answer comes from the practice's 11 help pages and cites them. If the answer isn't there, it says so and passes you to a person.</p>
+
+      <ol class="steps" aria-label="How a question is answered">
+        <li><strong>Find</strong> Your question becomes a 768-dimension embedding and is matched against 54 help-page sections in a Vectorize index.</li>
+        <li><strong>Check</strong> If nothing scores above the confidence threshold, the model is never called and you're handed to the front desk.</li>
+        <li><strong>Answer</strong> Llama 3.3 70B writes a short reply from only the matched passages, streamed word by word, with numbered citations.</li>
+        <li><strong>Protect</strong> Urgent phrases trigger a safety notice first, and each visitor is rate-limited so the demo stays free to run.</li>
+      </ol>
+
+      <dl class="facts">
+        <div><dt>Runs on</dt><dd>Cloudflare Workers, Workers AI, Vectorize</dd></div>
+        <div><dt>Cost to run</dt><dd>$0 on the free tier</dd></div>
+        <div><dt>Add your docs</dt><dd>Drop Markdown into <code>kb/</code>, re-index</dd></div>
+      </dl>
+      <div class="limits">
+        <h2>Limits of this public demo</h2>
+        <p>It runs entirely on Cloudflare's free tier, so usage is capped to keep it free and available:</p>
+        <ul>
+          <li>8 questions a minute and 25 a day per visitor.</li>
+          <li>A shared daily AI budget. When it's used up, the assistant pauses until 00:00 UTC.</li>
+          <li>Answers come only from the 11 help pages of a fictional practice, so anything outside them is handed off.</li>
+          <li>Visitor IPs are stored only as one-way hashes, and only for the current day.</li>
+        </ul>
+      </div>
+
+      <div class="more">
+        <h2>More demos</h2>
+        <ul>
+          <li><a href="https://business-mcp-server.smb-support-bot.workers.dev">MCP server</a>: the same practice's data as tools inside Claude or Codex.</li>
+          <li><a href="https://github.com/ParthivReddyY/n8n-lead-triage">n8n lead triage</a>: website enquiries scored, routed and given a drafted reply.</li>
+        </ul>
+      </div>
+
+      <p class="byline">Built by Parthiv Reddy · <a href="https://github.com/ParthivReddyY/smb-support-bot">Source on GitHub</a></p>
+    </section>
+
+    <section class="widget" aria-label="Chat with the Juniper Lane Dental assistant">
+      <header class="widget-head">
+        <div class="avatar" aria-hidden="true">JL</div>
+        <div>
+          <p class="widget-name">Juniper Lane Dental</p>
+          <p class="widget-status"><span class="dot" aria-hidden="true"></span>Assistant · answers from our help pages</p>
+        </div>
+      </header>
+
+      <div id="log" class="log" role="log" aria-live="polite">
+        <div class="msg bot">
+          <div class="bubble">Hi! I can answer questions about appointments, prices, insurance and aftercare at Juniper Lane Dental. What would you like to know?</div>
+        </div>
+      </div>
+
+      <div id="suggestions" class="suggestions" aria-label="Example questions">
+        <button type="button">Do you take Delta Dental?</button>
+        <button type="button">How much is a crown?</button>
+        <button type="button">Are you open on Saturdays?</button>
+        <button type="button">I knocked out a tooth</button>
+        <button type="button">Do you do metal braces?</button>
+        <button type="button">Can I bring my dog?</button>
+      </div>
+
+      <form id="composer" class="composer">
+        <label for="input" class="sr-only">Your question</label>
+        <textarea id="input" rows="1" maxlength="500" placeholder="Ask a question…" required></textarea>
+        <button id="send" type="submit" aria-label="Send question">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4 12l16-8-6 16-2.5-6.5L4 12z" fill="currentColor"/></svg>
+        </button>
+      </form>
+      <p class="fineprint"><span id="remaining">25 free questions a day.</span> Not medical advice. Juniper Lane Dental is fictional.</p>
+    </section>
+  </div>
+  <script src="/app.js" type="module"></script>
+</body>
+</html>

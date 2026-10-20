@@ -1,0 +1,36 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "smb-support-bot",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-20",
+
+  // Static chat UI. Requests that don't match a file fall through to the Worker (/api/*).
+  "assets": { "directory": "./public", "not_found_handling": "none" },
+
+  "ai": { "binding": "AI" },
+
+  // Create once: npx wrangler vectorize create smb-support-kb --dimensions=768 --metric=cosine
+  "vectorize": [{ "binding": "VECTORIZE", "index_name": "smb-support-kb" }],
+
+  // Per-visitor limit so a public demo can't drain the free Workers AI allowance.
+  "ratelimits": [{ "name": "CHAT_LIMITER", "namespace_id": "2201", "simple": { "limit": 8, "period": 60 } }],
+
+  "vars": {
+    "CHAT_MODEL": "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+    "EMBED_MODEL": "@cf/baai/bge-base-en-v1.5",
+    // Below this cosine score the bot hands off to a human instead of guessing.
+    "MIN_SCORE": "0.62",
+    // Supporting passages may score this much lower than MIN_SCORE once the top match clears it.
+    "SUPPORT_MARGIN": "0.07",
+    // Daily limits. The three demo Workers share Cloudflare's 10,000 free neurons a day:
+    // this one gets 6,000; the MCP server 300; the n8n AI proxy 2,500.
+    "DAILY_CHATS_PER_VISITOR": "25",
+    "DAILY_NEURON_BUDGET": "6000",
+    "NEURONS_PER_CHAT": "70"
+  },
+
+  "durable_objects": { "bindings": [{ "name": "USAGE", "class_name": "UsageLimiter" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["UsageLimiter"] }],
+
+  "observability": { "enabled": true, "head_sampling_rate": 1, "traces": { "enabled": true } }
+}
