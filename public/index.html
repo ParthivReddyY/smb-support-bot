@@ -18,7 +18,7 @@
       <p class="lede">Ask the assistant for Juniper Lane Dental anything a patient would: prices, insurance, opening hours, what to do with a knocked-out tooth. Every answer comes from the practice's 11 help pages and cites them. If the answer isn't there, it says so and passes you to a person.</p>
 
       <ol class="steps" aria-label="How a question is answered">
-        <li><strong>Find</strong> Your question becomes a 768-dimension embedding and is matched against 54 help-page sections in a Vectorize index.</li>
+        <li><strong>Find</strong> Your question becomes a 768-dimension embedding and is matched against 56 help-page sections in a Vectorize index.</li>
         <li><strong>Check</strong> If nothing scores above the confidence threshold, the model is never called and you're handed to the front desk.</li>
         <li><strong>Answer</strong> Llama 3.3 70B writes a short reply from only the matched passages, streamed word by word, with numbered citations.</li>
         <li><strong>Protect</strong> Urgent phrases trigger a safety notice first, and each visitor is rate-limited so the demo stays free to run.</li>

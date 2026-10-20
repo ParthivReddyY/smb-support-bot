@@ -8,7 +8,7 @@ A live support assistant for a **fictional** dental practice. It answers patient
 
 ## What it shows
 
-- **Retrieval-augmented answers.** Questions are embedded with `bge-base-en-v1.5` and matched against 54 help-page sections in a Vectorize index. Only matched passages reach the model.
+- **Retrieval-augmented answers.** Questions are embedded with `bge-base-en-v1.5` and matched against 56 help-page sections in a Vectorize index. Only matched passages reach the model.
 - **Citations.** Llama 3.3 70B (Workers AI) answers with numbered references, and the UI shows which page each one came from.
 - **Confidence-gated handoff.** If no passage scores above `MIN_SCORE`, the model is never called and the visitor is offered the front desk. No guessing.
 - **Safety notice.** Urgent phrases (breathing, spreading swelling, uncontrolled bleeding) trigger an emergency notice before any answer.
