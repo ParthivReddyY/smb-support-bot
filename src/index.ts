@@ -133,7 +133,32 @@ async function chat(request: Request, env: Env, ctx: ExecutionContext): Promise<
         temperature: 0.2,
       })) as ReadableStream<Uint8Array>;
 
-      await pipeTokens(stream, (text) => send({ type: "token", text }));
+      // The fp8 model occasionally streams garbage ("!!!!…"). Hold back the start of the answer,
+      // and if it is degenerate, retry once without streaming before falling back to a handoff.
+      // Local testing only (wrangler dev --var DEBUG_DEGENERATE:1): "1" breaks the stream, "2" the retry too.
+      const debug = (env as { DEBUG_DEGENERATE?: string }).DEBUG_DEGENERATE;
+      const streamed = await pipeGuarded(stream, (text) => send({ type: "token", text }), debug === "1" || debug === "2");
+      if (streamed) return;
+
+      console.warn(JSON.stringify({ event: "degenerate_output", retry: true }));
+      await usage.correct(estimate); // the retry is a second model call
+      const retry = (await env.AI.run(env.CHAT_MODEL as "@cf/meta/llama-3.3-70b-instruct-fp8-fast", {
+        messages,
+        max_tokens: 400,
+        temperature: 0.2,
+      })) as { response?: unknown };
+      const answer = retry.response == null ? "" : String(retry.response);
+      if (debug !== "2" && answer.trim() && !isDegenerate(answer)) {
+        await send({ type: "token", text: answer });
+        return;
+      }
+
+      console.warn(JSON.stringify({ event: "degenerate_output", retry: false }));
+      await send({
+        type: "handoff",
+        topScore: sources[0]?.score ?? 0,
+        text: "Sorry, I couldn't put that answer together just now. I can pass your question to our front desk team, who reply within one working day, or you can call us on (555) 014-2290.",
+      });
     } catch (err) {
       console.error(JSON.stringify({ event: "chat_error", error: String(err) }));
       await send({
@@ -157,8 +182,46 @@ async function chat(request: Request, env: Env, ctx: ExecutionContext): Promise<
   });
 }
 
+// How much of the answer to hold back and check before streaming it to the visitor.
+const GUARD_CHARS = 40;
+
+// Garbage output looks like "!!!!!!" or punctuation soup: mostly symbols, or one symbol repeated.
+// Digits count as real text so price lists like "$95 / $180 / $1,100" pass.
+function isDegenerate(text: string) {
+  const compact = text.replace(/\s+/g, "");
+  if (!compact) return false;
+  const wordChars = (compact.match(/[\p{L}\p{N}]/gu) ?? []).length;
+  return wordChars / compact.length < 0.3 || /([^\p{L}\p{N}])\1{7,}/u.test(compact);
+}
+
+// Stream tokens to the visitor, but only after the first GUARD_CHARS characters pass the check.
+// Returns false (having sent nothing) when the start of the answer is degenerate.
+async function pipeGuarded(
+  stream: ReadableStream<Uint8Array>,
+  onText: (text: string) => Promise<void>,
+  forceDegenerate = false,
+) {
+  let head = "";
+  let released = false;
+  const ok = await pipeTokens(stream, async (text) => {
+    if (released) return onText(text);
+    head += forceDegenerate ? "!".repeat(text.length) : text;
+    if (head.length < GUARD_CHARS) return;
+    if (isDegenerate(head)) return false;
+    released = true;
+    await onText(head);
+  });
+  if (!ok) return false;
+  if (released) return true;
+  // Short answer: the whole stream fit inside the guard window.
+  if (!head.trim() || isDegenerate(head)) return false;
+  await onText(head);
+  return true;
+}
+
 // Workers AI streams server-sent events. Pull out the text from each event.
-async function pipeTokens(stream: ReadableStream<Uint8Array>, onText: (text: string) => Promise<void>) {
+// onText can return false to stop reading; pipeTokens then returns false.
+async function pipeTokens(stream: ReadableStream<Uint8Array>, onText: (text: string) => Promise<void | boolean>) {
   const reader = stream.pipeThrough(new TextDecoderStream()).getReader();
   let buffer = "";
   for (;;) {
@@ -171,15 +234,23 @@ async function pipeTokens(stream: ReadableStream<Uint8Array>, onText: (text: str
       if (!line.startsWith("data:")) continue;
       const payload = line.slice(5).trim();
       if (!payload || payload === "[DONE]") continue;
+      let text = "";
       try {
-        const event = JSON.parse(payload) as { response?: string; choices?: { delta?: { content?: string } }[] };
-        const text = event.response ?? event.choices?.[0]?.delta?.content ?? "";
-        if (text) await onText(text);
+        const event = JSON.parse(payload) as { response?: unknown; choices?: { delta?: { content?: unknown } }[] };
+        // Tokens can arrive as numbers (e.g. a citation "1"), so always send a string.
+        const raw = event.response ?? event.choices?.[0]?.delta?.content;
+        text = raw == null ? "" : String(raw);
       } catch {
         // Ignore partial or non-JSON keep-alive lines.
+        continue;
+      }
+      if (text && (await onText(text)) === false) {
+        await reader.cancel();
+        return false;
       }
     }
   }
+  return true;
 }
 
 async function ingest(request: Request, env: Env): Promise<Response> {

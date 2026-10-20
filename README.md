@@ -13,6 +13,7 @@ A live support assistant for a **fictional** dental practice. It answers patient
 - **Confidence-gated handoff.** If no passage scores above `MIN_SCORE`, the model is never called and the visitor is offered the front desk. No guessing.
 - **Safety notice.** Urgent phrases (breathing, spreading swelling, uncontrolled bleeding) trigger an emergency notice before any answer.
 - **Streaming.** Answers stream token by token over server-sent events.
+- **Garbage-output guard.** The first 40 characters of each answer are held back and checked. If the model returns symbol soup (the fp8 model occasionally streams "!!!!…"), the Worker retries once without streaming, and hands off to the front desk if that fails too.
 - **Layered usage limits.** A per-visitor burst limit, a per-visitor daily cap and a shared daily AI budget keep the public demo inside the free tier. The UI shows how many questions you have left.
 
 ## Limits of this public demo (tested)
